@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import datetime
 from playwright.async_api import async_playwright
 
@@ -21,6 +22,8 @@ async def main():
         await page_login.fill("input#password", password)
         async with page_login.expect_navigation():
             await page_login.locator("button:has-text(\"Login\")").click()
+        
+        # Wait for login
         await asyncio.sleep(10)
 
         # Open Scheduling Pages
@@ -54,8 +57,22 @@ async def scheduling_tasks(context, link, course_number, sch_time):
     await page_task.get_by_role("button", name='Add').click()
 
 def get_user_info():
-    username = input("UF Username: ")
-    password = input("Password: ")
+    try:
+        with open('userdata.txt') as f: 
+            data = f.read()
+            user_data = json.loads(data)
+            username = user_data["Username"]
+            password = user_data["Password"]
+
+    except IOError:
+        data = {}
+        data["Username"] = input("UF Username: ")
+        data["Password"] = input("Password: ")
+        with open('userdata.txt', 'w') as f: 
+            f.write(json.dumps(data))
+        username = data["Username"]
+        password = data["Password"]
+    
     sch_time = datetime.strptime(input("Scheduling Time (Ex: 10/24/23 14:00:00): "), '%m/%d/%y %H:%M:%S')
     return username, password, sch_time
 
