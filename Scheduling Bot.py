@@ -25,12 +25,13 @@ async def main():
             await page_login.locator("button:has-text(\"Login\")").click()
         
         # Wait for login
-        await asyncio.sleep(10)
+        await asyncio.sleep(15)
 
         # Open Scheduling Pages
         link = 'https://one.uf.edu/myschedule/2241'
         course_numbers = [15755, 15713]
         count = []
+        print('Launching Tasks ... ')
         for i in range(len(course_numbers)):
             asyncio.create_task(scheduling_tasks(context, link, course_numbers[i], sch_time, count, i))
         
@@ -43,21 +44,27 @@ async def main():
 
 async def scheduling_tasks(context, link, course_number, sch_time, count, i):
     try:
+        print(f'[Task {i + 1}][{course_number}] Opening Browser')
         page_task = await context.new_page()
+        print(f'[Task {i + 1}][{course_number}] Opening Link')
         await page_task.goto(link)
         
         # Wait for Scheduled Time
         current_time = datetime.now()
         time_remaining = (sch_time - current_time).total_seconds()
+        print(f'[Task {i + 1}][{course_number}] Sleeping for {time_remaining} seconds')
         await asyncio.sleep(time_remaining)
+        print(f'[Task {i + 1}][{course_number}] Opening Scheduling Page')
         await page_task.goto(f'https://one.uf.edu/soc/registration-search/{link[-4:]}')
 
         # Input Class Number
+        print(f'[Task {i + 1}][{course_number}] Searching for class')
         await page_task.fill("input#class-number", str(course_number))
         async with page_task.expect_navigation():
             await page_task.locator("button:has-text(\"Search\")").click()
         
         # Add Class
+        print(f'[Task {i + 1}][{course_number}] Registering for class')
         await page_task.locator("button:has-text(\"+ Add Class\")").click()
         await page_task.get_by_role("button", name='Add').click()
 
