@@ -1,5 +1,6 @@
 import asyncio
-import json
+import json 
+import time
 from datetime import datetime
 from playwright.async_api import async_playwright
 
@@ -29,32 +30,43 @@ async def main():
         # Open Scheduling Pages
         link = 'https://one.uf.edu/myschedule/2241'
         course_numbers = [15755, 15713]
+        count = []
         for i in range(len(course_numbers)):
-            asyncio.create_task(scheduling_tasks(context, link, course_numbers[i], sch_time))
+            asyncio.create_task(scheduling_tasks(context, link, course_numbers[i], sch_time, count, i))
         
-        await asyncio.sleep(30)
+        while len(count) != len(course_numbers):
+            await asyncio.sleep(2)
 
+        await asyncio.sleep(30)
         await browser.close()
 
 
-async def scheduling_tasks(context, link, course_number, sch_time):
-    page_task = await context.new_page()
-    await page_task.goto(link)
-    
-    # Wait for Scheduled Time
-    current_time = datetime.now()
-    time_remaining = (sch_time - current_time).total_seconds()
-    await asyncio.sleep(time_remaining)
-    await page_task.goto(f'https://one.uf.edu/soc/registration-search/{link[-4:]}')
+async def scheduling_tasks(context, link, course_number, sch_time, count, i):
+    try:
+        page_task = await context.new_page()
+        await page_task.goto(link)
+        
+        # Wait for Scheduled Time
+        current_time = datetime.now()
+        time_remaining = (sch_time - current_time).total_seconds()
+        await asyncio.sleep(time_remaining)
+        await page_task.goto(f'https://one.uf.edu/soc/registration-search/{link[-4:]}')
 
-    # Input Class Number
-    await page_task.fill("input#class-number", str(course_number))
-    async with page_task.expect_navigation():
-        await page_task.locator("button:has-text(\"Search\")").click()
-    
-    # Add Class
-    await page_task.locator("button:has-text(\"+ Add Class\")").click()
-    await page_task.get_by_role("button", name='Add').click()
+        # Input Class Number
+        await page_task.fill("input#class-number", str(course_number))
+        async with page_task.expect_navigation():
+            await page_task.locator("button:has-text(\"Search\")").click()
+        
+        # Add Class
+        await page_task.locator("button:has-text(\"+ Add Class\")").click()
+        await page_task.get_by_role("button", name='Add').click()
+
+        # Return count
+        count.append(1)
+
+    except:
+        print(f'[Task {i+1}][{course_number}] Fatal Error')
+        count.append(0)
 
 def get_user_info():
     try:
