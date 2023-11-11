@@ -31,7 +31,7 @@ async def main():
 
         # Open Scheduling Pages
         link = 'https://one.uf.edu/myschedule/2241'
-        course_numbers = [11849]
+        course_numbers = [30123]
         count = []
         for i in range(len(course_numbers)):
             asyncio.create_task(scheduling_tasks(context, link, course_numbers[i], sch_time, count, i))
@@ -61,33 +61,44 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
         await page_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{course_number}"')
 
         # Add Class
-        print(f'[Task {i + 1}][{course_number}] Registering for class')
-        button = await page_task.get_by_text('+ Add').text_content()
-        if button == '+ Add Class':
-            await page_task.locator("button:has-text(\"+ Add Class\")").click()
-            await page_task.get_by_role("button", name='Add').click()
-            print(f'[Task {i + 1}][{course_number}] Processing')
-            await asyncio.sleep(7)
-            success_message = 'The following class was ADDED  successfully'
-            if await page_task.get_by_text('The following class').text_content() == success_message:
-                print(f'[Task {i + 1}][{course_number}] Successfully Added Class')
-            else:
-                print(f'[Task {i + 1}][{course_number}] Failed: Could not add class')
-        else:
-            print(f'[Task {i + 1}][{course_number}] Class Full: Registering for Waitlist')
-            await page_task.locator("button:has-text(\"+ Add to Wait List\")").click()
-            await page_task.get_by_role("button", name='Add to Wait List').click()
-            print(f'[Task {i + 1}][{course_number}] Processing')
-            await asyncio.sleep(7)
-            success_message = 'The following class was ADDED  to the wait list  successfully'
-            if await page_task.get_by_text('The following class').text_content() == success_message:
-                print(f'[Task {i + 1}][{course_number}] Successfully Added to Waitlist')
-                await page_task.goto(link)
-                position = (await page_task.get_by_text('Wait List position').text_content())[-1]
-                print(f'[Task {i + 1}][{course_number}] Wait list position: {position}')
-            else:
-                print(f'[Task {i + 1}][{course_number}] Failed: Could not add to waitlist')
+        if await page_task.get_by_text('+ Add').count() != 0:
+            print(f'[Task {i + 1}][{course_number}] Registering for class')
+            button = await page_task.get_by_text('+ Add').text_content()
 
+            # Add to class
+            if button == '+ Add Class':
+                await page_task.locator("button:has-text(\"+ Add Class\")").click()
+                await page_task.get_by_role("button", name='Add').click()
+                print(f'[Task {i + 1}][{course_number}] Processing')
+                await asyncio.sleep(7)
+                success_message = 'The following class was ADDED  successfully'
+                if await page_task.get_by_text('The following class').text_content() == success_message:
+                    print(f'[Task {i + 1}][{course_number}] Successfully Added Class')
+                else:
+                    print(f'[Task {i + 1}][{course_number}] Failed: Could not add class')
+            
+            # Add to Waitlist
+            else:
+                print(f'[Task {i + 1}][{course_number}] Class Full: Registering for Waitlist')
+                await page_task.locator("button:has-text(\"+ Add to Wait List\")").click()
+                await page_task.get_by_role("button", name='Add to Wait List').click()
+                print(f'[Task {i + 1}][{course_number}] Processing')
+                await asyncio.sleep(7)
+                success_message = 'The following class was ADDED  to the wait list  successfully'
+                if await page_task.get_by_text('The following class').text_content() == success_message:
+                    print(f'[Task {i + 1}][{course_number}] Successfully Added to Waitlist')
+                    await page_task.goto(link)
+                    position = (await page_task.get_by_text('Wait List position').text_content())[-1]
+                    print(f'[Task {i + 1}][{course_number}] Wait list position: {position}')
+                else:
+                    print(f'[Task {i + 1}][{course_number}] Failed: Could not add to waitlist')
+        else:
+            print(f'[Task {i + 1}][{course_number}] Class Full: Starting backup tasks')
+            backup_status = False
+            while backup_status == False:
+                backup_task = await context.new_page()
+                for i in range(1, len(course_number)):
+                    await backup_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{course_number[i]}"')
 
         # Return count
         count.append(1)
