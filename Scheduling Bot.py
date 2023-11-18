@@ -4,14 +4,13 @@ import requests
 from datetime import datetime
 from playwright.async_api import async_playwright
 
-
 async def main():
     # Get user information
     username, password, sch_time, webhook = get_user_info()
 
     # Launch Browser
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False, slow_mo=50)
+        browser = await p.chromium.launch(headless=False, slow_mo=100)
         context = await browser.new_context()
         page_login = await context.new_page()
         await page_login.goto("http://one.uf.edu")
@@ -36,7 +35,7 @@ async def main():
         course_numbers = [[10774, 10718, 25465], [26055]]
         count = []
         for i in range(len(course_numbers)):
-            asyncio.create_task(scheduling_tasks(context, link, course_numbers[i], sch_time, count, i))
+            asyncio.create_task(scheduling_tasks(context, link, course_numbers[i], sch_time, count, i, webhook))
 
         while len(count) != len(course_numbers):
             await asyncio.sleep(2)
@@ -45,7 +44,7 @@ async def main():
         await browser.close()
 
 
-async def scheduling_tasks(context, link, course_number, sch_time, count, i):
+async def scheduling_tasks(context, link, course_number, sch_time, count, i, webhook):
     try:
         print(f'[Task {i + 1}][{course_number[0]}] Opening Browser')
         page_task = await context.new_page()
@@ -67,7 +66,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
             print(f'[Task {i + 1}][{course_number[0]}] Registering for class')
 
             # Register for class
-            success = await add_class(page_task, course_number[0], i)
+            success = await add_class(page_task, course_number[0], i, webhook)
             if success == False:
                 raise Exception
             
@@ -89,7 +88,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
                     try:
                         await backup_task.locator("button:has-text(\"+ Add Class\")").wait_for(timeout=3000)
                         print(f'[Task {i + 1}][{course_number[course]}] Registering for class')
-                        success = await add_class(backup_task, course_number[course], i)
+                        success = await add_class(backup_task, course_number[course], i, webhook)
                         if success == True:
                             break
                     except:
@@ -104,7 +103,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
             print('Adding user to waitlists')
             for wl_course in waitlist_classes:
                 await page_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{wl_course}"')
-                await add_waitlist(page_task, wl_course, i, link)
+                await add_waitlist(page_task, wl_course, i, link, webhook)
 
         # Return count
         count.append(1)
@@ -113,39 +112,54 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
         print(f'[Task {i + 1}][{course_number}] Fatal Error')
         count.append(0)
 
-async def add_class(page_task, course_number, i):
+async def add_class(page_task, course_number, i, webhook):
     try:
         await page_task.locator("button:has-text(\"+ Add Class\")").wait_for(timeout=3000)
         await page_task.locator("button:has-text(\"+ Add Class\")").click()
         await page_task.get_by_role("button", name='Add').click()
         print(f'[Task {i + 1}][{course_number}] Processing')
-        await asyncio.sleep(7)
+        await asyncio.sleep(10)
         success_message = 'The following class was ADDED  successfully'
         if await page_task.get_by_text('The following class').text_content() == success_message:
-            print(f'[Task {i + 1}][{course_number}] Successfully Added Class')
+            success = True
+            text = f'[Task {i + 1}][{course_number}] Successfully Added Class'
+            print(text)
+            discord_message(text, success, webhook)
             return True
         else:
-            print(f'[Task {i + 1}][{course_number}] Failed: Could not add class')
+            success = False
+            text = f'[Task {i + 1}][{course_number}] Failed: Could not add class'
+            print(text)
+            discord_message(text, success, webhook)
             return False
     except:
-        print(f'[Task {i + 1}][{course_number}] Class Full / Fatal Error')
+        success = False
+        text = f'[Task {i + 1}][{course_number}] Class Full / Fatal Error'
+        print(text)
+        discord_message(text, success, webhook)
         return False
     
 
-async def add_waitlist(page_task, course_number, i, link):
+async def add_waitlist(page_task, course_number, i, link, webhook):
     print(f'[Task {i + 1}][{course_number}] Class Full: Registering for Waitlist')
     await page_task.locator("button:has-text(\"+ Add to Wait List\")").click()
     await page_task.get_by_role("button", name='Add to Wait List').click()
     print(f'[Task {i + 1}][{course_number}] Processing')
-    await asyncio.sleep(7)
+    await asyncio.sleep(10)
     success_message = 'The following class was ADDED  to the wait list  successfully'
     if await page_task.get_by_text('The following class').text_content() == success_message:
-        print(f'[Task {i + 1}][{course_number}] Successfully Added to Waitlist')
+        success = True
+        text = f'[Task {i + 1}][{course_number}] Successfully Added to Waitlist'
+        print(text)
+        discord_message(text, success, webhook)
         await page_task.goto(link)
         position = (await page_task.get_by_text('Wait List position').text_content())[-1]
         print(f'[Task {i + 1}][{course_number}] Wait list position: {position}')
     else:
-        print(f'[Task {i + 1}][{course_number}] Failed: Could not add to waitlist')
+        success = False
+        text = f'[Task {i + 1}][{course_number}] Failed: Could not add to waitlist'
+        print(text)
+        discord_message(text, success, webhook)
 
 
 def get_user_info():
@@ -186,8 +200,24 @@ def get_user_info():
     sch_time = datetime.strptime(input("Scheduling Time (Ex: 10/24/23 14:00:00): "), '%m/%d/%y %H:%M:%S')
     return username, password, sch_time, webhook
 
-def discord_message(message, success=False, waitlist=False):
-    pass
+def discord_message(text, bool, webhook):
+
+    if bool == True:
+        title = "Success"
+        color = 65280
+    else:
+        title = "Failed"
+        color = 16711680
+
+    message = {
+        "embeds": [{
+        "title": f"{title}",
+        "color": color,
+        "description": f"{text}"
+        }]
+    }
+    
+    x = requests.post(webhook, json=message)
 
 if __name__ == '__main__':
     asyncio.run(main())
