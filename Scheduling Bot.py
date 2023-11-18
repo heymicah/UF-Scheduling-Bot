@@ -1,13 +1,13 @@
 import asyncio
 import json
-import traceback
+import requests
 from datetime import datetime
 from playwright.async_api import async_playwright
 
 
 async def main():
     # Get user information
-    username, password, sch_time = get_user_info()
+    username, password, sch_time, webhook = get_user_info()
 
     # Launch Browser
     async with async_playwright() as p:
@@ -19,11 +19,12 @@ async def main():
             await page_login.locator("button:has-text(\"Log in with GatorLink\")").click()
 
         # Username and Password Fill
-
+        print(f'Logging in ...')
         await page_login.fill("input#username", username)
         await page_login.fill("input#password", password)
         async with page_login.expect_navigation():
             await page_login.locator("button:has-text(\"Login\")").click()
+        print(f'Waiting for 2FA ...')
 
         # Wait for login
         await asyncio.sleep(15)
@@ -74,7 +75,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
             # Initialize class list that can be waitlisted
             waitlist_classes = []
             try: 
-                await page_task.locator("button:has-text(\"+ Add to Wait List\")").wait_for(timeout=1500)
+                await page_task.locator("button:has-text(\"+ Add to Wait List\")").wait_for(timeout=3000)
                 waitlist_classes.append(course_number[0])
             except:
                 pass
@@ -86,14 +87,14 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
                 for course in range(1, len(course_number)):
                     await backup_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{course_number[course]}"')
                     try:
-                        await backup_task.locator("button:has-text(\"+ Add Class\")").wait_for(timeout=1500)
+                        await backup_task.locator("button:has-text(\"+ Add Class\")").wait_for(timeout=3000)
                         print(f'[Task {i + 1}][{course_number[course]}] Registering for class')
                         success = await add_class(backup_task, course_number[course], i)
                         if success == True:
                             break
                     except:
                         try: 
-                            await page_task.locator("button:has-text(\"+ Add to Wait List\")").wait_for(timeout=1500)
+                            await page_task.locator("button:has-text(\"+ Add to Wait List\")").wait_for(timeout=3000)
                             waitlist_classes.append(course_number[course])
                         except:
                             pass
@@ -114,7 +115,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i):
 
 async def add_class(page_task, course_number, i):
     try:
-        await page_task.locator("button:has-text(\"+ Add Class\")").wait_for(timeout=1500)
+        await page_task.locator("button:has-text(\"+ Add Class\")").wait_for(timeout=3000)
         await page_task.locator("button:has-text(\"+ Add Class\")").click()
         await page_task.get_by_role("button", name='Add').click()
         print(f'[Task {i + 1}][{course_number}] Processing')
@@ -154,19 +155,39 @@ def get_user_info():
             user_data = json.loads(data)
             username = user_data["Username"]
             password = user_data["Password"]
+            webhook = user_data["Webhook"]
 
     except IOError:
         data = {}
         data["Username"] = input("UF Username: ")
         data["Password"] = input("Password: ")
+        while True:
+            try:
+                data["Webhook"] = input("Discord Webhook: ")
+                test_message = {
+                    "embeds": [{
+                    "title": "Test",
+                    "description": "Test Message"
+                    }]
+                }
+                x = requests.post(data["Webhook"], json=test_message)
+                if x.status_code == 204:
+                    break
+                else:
+                    raise Exception
+            except:
+                print("Invalid Webhook")
         with open('userdata.txt', 'w') as f:
             f.write(json.dumps(data))
         username = data["Username"]
         password = data["Password"]
+        webhook = data["Webhook"]
 
     sch_time = datetime.strptime(input("Scheduling Time (Ex: 10/24/23 14:00:00): "), '%m/%d/%y %H:%M:%S')
-    return username, password, sch_time
+    return username, password, sch_time, webhook
 
+def discord_message(message, success=False, waitlist=False):
+    pass
 
 if __name__ == '__main__':
     asyncio.run(main())
