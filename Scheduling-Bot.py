@@ -1,7 +1,6 @@
 import asyncio
 import json
 import requests
-import time
 from datetime import datetime
 from playwright.async_api import async_playwright
 
@@ -63,6 +62,9 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i, web
         await page_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{course_number[0]}"')
 
         # Add Class
+        # Initialize waitlist list
+        waitlist_classes = []
+        
         try:
             print(f'[{str(datetime.now().time())}][Task {i + 1}][{course_number[0]}] Registering for class')
 
@@ -73,7 +75,6 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i, web
             
         except:
             # Initialize class list that can be waitlisted
-            waitlist_classes = []
             try: 
                 await page_task.locator("button:has-text(\"+ Add to Wait List\")").wait_for(timeout=3000)
                 waitlist_classes.append(course_number[0])
