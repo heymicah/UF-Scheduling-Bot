@@ -1,0 +1,4 @@
+.venv
+.idea
+userdata.txt
+.DS_Store

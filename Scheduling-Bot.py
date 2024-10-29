@@ -10,7 +10,7 @@ async def main():
 
     # Launch Browser
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, slow_mo=100)
+        browser = await p.chromium.launch(headless=False, slow_mo=100)
         context = await browser.new_context()
         page_login = await context.new_page()
         await page_login.goto("http://one.uf.edu")
@@ -32,8 +32,8 @@ async def main():
         await asyncio.sleep(5)
 
         # Open Scheduling Pages
-        link = 'https://one.uf.edu/myschedule/2241'
-        course_numbers = [[10792, 10718, 25465], [19145]]
+        link = 'https://one.uf.edu/myschedule/2251'
+        course_numbers = [[20886], [23406], [19232], [13387]]
         count = []
         for i in range(len(course_numbers)):
             asyncio.create_task(scheduling_tasks(context, link, course_numbers[i], sch_time, count, i, webhook))
@@ -64,7 +64,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i, web
 
         # Continue after sleep
         print(f'[{str(datetime.now().time())}][Task {i + 1}][{course_number[0]}] Searching for Class')
-        await page_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{course_number[0]}"')
+        await page_task.goto(f'https://one.uf.edu/soc/registration-search/2251?term="2251"&category="CWSP"&class-num="{course_number[0]}"')
 
         # Add Class
         try:
@@ -84,7 +84,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i, web
                 print(f'[{str(datetime.now().time())}][Task {i + 1}][{course_number[0]}] Class Full: Starting backup tasks')
                 backup_task = await context.new_page()
                 for course in range(1, len(course_number)):
-                    await backup_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{course_number[course]}"')
+                    await backup_task.goto(f'https://one.uf.edu/soc/registration-search/2251?term="2251"&category="CWSP"&class-num="{course_number[course]}"')
                     try:
                         await backup_task.locator("button:has-text(\"+ Add Class\")").wait_for(timeout=timeout_time)
                         print(f'[{str(datetime.now().time())}][Task {i + 1}][{course_number[course]}] Registering for class')
@@ -109,7 +109,7 @@ async def scheduling_tasks(context, link, course_number, sch_time, count, i, web
         if len(waitlist_classes) > 0:
             print(f'[{str(datetime.now().time())}] Adding user to waitlists')
             for wl_course in waitlist_classes:
-                await page_task.goto(f'https://one.uf.edu/soc/registration-search/2241?term="2241"&category="CWSP"&class-num="{wl_course}"')
+                await page_task.goto(f'https://one.uf.edu/soc/registration-search/2251?term="2251"&category="CWSP"&class-num="{wl_course}"')
                 await add_waitlist(page_task, wl_course, i, link, webhook)
 
         # Return count
